@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Litt Live</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        font-family: Inter, Arial, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .container {
+        display: flex;
+        height: 100vh;
+      }
+      .sidebar {
+        width: 320px;
+        background: #2d014d;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 32px;
+        box-sizing: border-box;
+      }
+      .sidebar-logo {
+        width: 120px;
+        margin-bottom: 32px;
+      }
+      .station-list {
+        flex: 1;
+        width: 100%;
+        overflow-y: auto;
+        padding-bottom: 32px;
+        scrollbar-width: thin;
+        scrollbar-color: #a100ff #2d014d;
+      }
+      .station-list::-webkit-scrollbar {
+        width: 8px;
+        background: #2d014d;
+      }
+      .station-list::-webkit-scrollbar-thumb {
+        background: #a100ff;
+        border-radius: 6px;
+      }
+      .station-list::-webkit-scrollbar-track {
+        background: #2d014d;
+      }
+      .station-btn {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        background: none;
+        border: none;
+        color: inherit;
+        padding: 12px 24px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.2s;
+        outline: none;
+        font-family: inherit;
+      }
+      .station-btn.selected,
+      .station-btn:focus {
+        background: #4b0a7f;
+        font-weight: bold;
+      }
+      .station-btn.highlighted:not(.selected) {
+        background: #a100ff;
+        font-weight: bold;
+      }
+      .station-btn:active {
+        background: #6d1bb3;
+      }
+      .station-img {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        margin-right: 16px;
+        object-fit: cover;
+        background: #fff;
+      }
+      .station-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        text-align: left;
+      }
+      .main {
+        flex: 1;
+        background: linear-gradient(135deg, #ff5fcb 0%, #a100ff 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .station-card {
+        background: #fff;
+        border-radius: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        padding: 40px;
+        min-width: 340px;
+        max-width: 420px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .station-card-img {
+        width: 120px;
+        height: 120px;
+        border-radius: 16px;
+        object-fit: cover;
+        margin-bottom: 24px;
+        background: #eee;
+      }
+      .station-card-title {
+        margin: 0 0 16px 0;
+        font-size: 24px;
+        color: #a100ff;
+        text-align: center;
+      }
+      audio {
+        width: 100%;
+        outline: none;
+      }
+      @media (max-width: 700px) {
+        .container {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: 100vw;
+          flex-direction: row;
+          padding-top: 0;
+          padding-bottom: 0;
+          height: 100px;
+        }
+        .sidebar-logo {
+          width: 80px;
+          margin: 0 16px 0 0;
+        }
+        .station-list {
+          flex-direction: row;
+          display: flex;
+          overflow-x: auto;
+          overflow-y: hidden;
+          width: auto;
+          height: 100px;
+          padding-bottom: 0;
+        }
+        .station-btn {
+          padding: 8px 12px;
+          font-size: 14px;
+        }
+        .station-img {
+          width: 28px;
+          height: 28px;
+          margin-right: 8px;
+        }
+        .main {
+          padding: 16px 0;
+        }
+        .station-card {
+          min-width: 0;
+          max-width: 95vw;
+          padding: 16px;
+        }
+        .station-card-img {
+          width: 80px;
+          height: 80px;
+          margin-bottom: 16px;
+        }
+        .station-card-title {
+          font-size: 18px;
+          margin-bottom: 8px;
+        }
+        .station-list::-webkit-scrollbar {
+          height: 6px;
+        }
+      }
+    </style>
+  </head>
+
+
+<body>
+    <div class="container">
+      <nav class="sidebar">
+        <img
+          class="sidebar-logo"
+          src="https://littlive.com/static/media/Dash_logo_white.f0ee1bb4a45a3f5682cf.png"
+          alt="Dash Logo"
+        />
+        <div class="station-list" id="station-list"></div>
+      </nav>
+      <main class="main">
+        <div class="station-card" id="station-card">
+          <!-- Station details will be injected here -->
+        </div>
+      </main>
+    </div>
+    <script>
+      let stations = [];
+      let highlightedIdx = 0; // For navigation
+      let playingIdx = null; // For playback
+      let audioEl = null;
+
+      // Fetch stations.json
+      fetch("https://raw.githubusercontent.com/Yoshiofthewire/LittLive_WebOS/refs/heads/main/stations.json")
+        .then((res) => res.json())
+        .then((data) => {
+          stations = data.stations;
+          renderStationList();
+          renderStationCard(playingIdx);
+        });
+
+      function renderStationList() {
+        const list = document.getElementById("station-list");
+        list.innerHTML = "";
+        stations.forEach((station, idx) => {
+          const btn = document.createElement("button");
+          btn.className = "station-btn";
+          if (idx === playingIdx) btn.classList.add("selected");
+          if (idx === highlightedIdx && idx !== playingIdx)
+            btn.classList.add("highlighted");
+          btn.setAttribute("tabindex", "0");
+          btn.setAttribute("data-idx", idx);
+          btn.onclick = () => {
+            highlightedIdx = idx;
+            playHighlightedStation();
+          };
+
+          const img = document.createElement("img");
+          img.className = "station-img";
+          img.src = station.imageUrl;
+          img.alt = station.title;
+
+          const span = document.createElement("span");
+          span.className = "station-title";
+          span.textContent = station.title;
+
+          btn.appendChild(img);
+          btn.appendChild(span);
+          list.appendChild(btn);
+        });
+        focusHighlightedButton();
+      }
+
+      function renderStationCard(idx) {
+        const card = document.getElementById("station-card");
+        if (idx === null || idx === undefined) {
+          card.innerHTML = `
+            <div style="color:#a100ff;text-align:center;font-size:20px;">
+              Select a station and press Enter or Space to play.
+            </div>
+          `;
+          audioEl = null;
+          return;
+        }
+        const station = stations[idx];
+        card.innerHTML = `
+          <img class="station-card-img" src="${station.imageUrl}" alt="${station.title}" />
+          <h2 class="station-card-title">${station.title}</h2>
+          <audio id="station-audio" controls autoplay src="${station.streamUrl}">
+            Your browser does not support the audio element.
+          </audio>
+        `;
+        audioEl = document.getElementById("station-audio");
+        setupMediaSession(station, idx);
+      }
+
+      function focusHighlightedButton() {
+        // Focus the highlighted button and scroll it into view
+        const list = document.getElementById("station-list");
+        const btns = list.querySelectorAll(".station-btn");
+        if (btns[highlightedIdx]) {
+          btns[highlightedIdx].focus();
+          btns[highlightedIdx].scrollIntoView({
+            block: "nearest",
+            behavior: "smooth",
+          });
+        }
+      }
+
+      function playHighlightedStation() {
+        playingIdx = highlightedIdx;
+        renderStationList();
+        renderStationCard(playingIdx);
+      }
+
+      // Keyboard navigation and play on Enter/Space
+      document.addEventListener("keydown", function (e) {
+        // Only handle if focus is not in an input/textarea/select
+        const active = document.activeElement;
+        const isInput =
+          active &&
+          (active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.tagName === "SELECT" ||
+            active.isContentEditable);
+
+        if (isInput) return;
+
+        if (stations.length === 0) return;
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (highlightedIdx < stations.length - 1) {
+            highlightedIdx++;
+            renderStationList();
+          }
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (highlightedIdx > 0) {
+            highlightedIdx--;
+            renderStationList();
+          }
+        } else if (e.key === "Enter" || e.key === " ") {
+          // Space or Enter: play/select highlighted station
+          e.preventDefault();
+          playHighlightedStation();
+        }
+      });
+
+      // Media Session API for media keys
+      function setupMediaSession(station, idx) {
+        if ("mediaSession" in navigator) {
+          navigator.mediaSession.metadata = new window.MediaMetadata({
+            title: station.title,
+            artist: "",
+            album: "",
+            artwork: [
+              { src: station.imageUrl, sizes: "96x96", type: "image/png" },
+              { src: station.imageUrl, sizes: "128x128", type: "image/png" },
+              { src: station.imageUrl, sizes: "192x192", type: "image/png" },
+              { src: station.imageUrl, sizes: "256x256", type: "image/png" },
+              { src: station.imageUrl, sizes: "384x384", type: "image/png" },
+              { src: station.imageUrl, sizes: "512x512", type: "image/png" }
+            ]
+          });
+
+          navigator.mediaSession.setActionHandler("play", function () {
+            if (audioEl) audioEl.play();
+          });
+          navigator.mediaSession.setActionHandler("pause", function () {
+            if (audioEl) audioEl.pause();
+          });
+          navigator.mediaSession.setActionHandler("stop", function () {
+            if (audioEl) audioEl.pause();
+            if (audioEl) audioEl.currentTime = 0;
+          });
+          navigator.mediaSession.setActionHandler("previoustrack", function () {
+            if (playingIdx > 0) {
+              highlightedIdx = playingIdx - 1;
+              playHighlightedStation();
+            }
+          });
+          navigator.mediaSession.setActionHandler("nexttrack", function () {
+            if (playingIdx < stations.length - 1) {
+              highlightedIdx = playingIdx + 1;
+              playHighlightedStation();
+            }
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
